@@ -51,4 +51,5 @@ SSH_KEY_FILE=/home/jake/.ssh/id_rsa.pub
 ### Running
 ```
 ./run.sh <config-file> <clean>
+ssh <USERNAME>@localhost
 ```
