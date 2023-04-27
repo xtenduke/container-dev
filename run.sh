@@ -48,7 +48,7 @@ remove_container() {
 # Create a new cotnainer
 create_container() {
   set -e
-  docker run -p 127.0.0.1:22:$SSH_HOST_PORT/tcp --name $CONTAINER_NAME -v $BIND_LOCAL_DIRECTORY:$BIND_CONTAINER_DIRECTORY -it $IMAGE_NAME
+  docker run -p 127.0.0.1:$SSH_HOST_PORT:22/tcp --name $CONTAINER_NAME -v $BIND_LOCAL_DIRECTORY:$BIND_CONTAINER_DIRECTORY -it $IMAGE_NAME
   set +e
 }
 
