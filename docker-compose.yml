@@ -1,0 +1,25 @@
+services:
+  dev:
+    container_name: ${CONTAINER_NAME}
+    build:
+      context: .
+      args:
+        DEV_USER: ${DEV_USER}
+        DEV_UID: ${DEV_UID}
+        DEV_GID: ${DEV_GID}
+        DOCKER_GID: ${DOCKER_GID}
+    image: ${IMAGE_NAME}
+    environment:
+      ROOT_PASSWORD: ${ROOT_PASSWORD:-}
+      DEV_PASSWORD: ${DEV_PASSWORD:-}
+      DEV_USER: ${DEV_USER}
+      DEV_UID: ${DEV_UID}
+      DEV_GID: ${DEV_GID}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Workspace:/workspace
+      - dev-home:/home/${DEV_USER}
+    tty: true
+
+volumes:
+  dev-home:

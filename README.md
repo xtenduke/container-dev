@@ -1,55 +1,49 @@
-## Containerised development environment
-A development environment inside docker, running Ubuntu
+## Containerised Development Environment
 
-Create multiple Containers with separate configs, install whatever packages you need 
+A development environment inside Docker, running Fedora.
+
+### Features
+- **Host Docker Access**
+- **Workspace mount** mount a dir from the host into the container
 
 ### Usage
-- Create a config file for a development 'environment' / project
-- Run `run.sh` with the config file (optional clean argument to ensure a clean image build `./run.sh .config clean`
-- SSH into the container to develop, or use Jetbrains Gateway / VS Code remote plugin
+1. **Configuration**:
+   ```bash
+   cp env.template .env
+   # Edit .env to set your user/uid/gid preferences
+   ```
+
+2. **Run**:
+   ```bash
+   ./run.sh
+   ```
+   - You will be asked to enter a password. This password will be set for both `root` and your `DEV_USER`
+   - The script will build (if needed), start the container, and attach you to a shell.
 
 ### Config
-```
-  # What directory on the host to bind to the container, i.e. a code 'workspace'
-  BIND_LOCAL_DIRECTORY= 
-  
-  # where in the container to bind the directory
-  BIND_CONTAINER_DIRECTORY=
-  
-  # name of the image to build
-  IMAGE_NAME= 
-  
-  # name of the container this will create
-  CONTAINER_NAME= 
-  
-  # port to bind the SSH port to (container SSH port hardcoded to 22)
-  SSH_HOST_PORT= 
-  
-  # user name for the container user
-  USERNAME=
-  
-  # password for the user
-  PASSWORD= 
-  
-  # path to SSH pubkey, this will be copied to the container
-  SSH_KEY_FILE=
-                                           
-```
+Variables in `.env`:
 
-### Example config
-```
-BIND_LOCAL_DIRECTORY=/mnt/c/Users/Jake/development/dotfiles
-BIND_CONTAINER_DIRECTORY=/home/jake/development
-IMAGE_NAME=dotfiles-container
-CONTAINER_NAME=dotfiles
-SSH_HOST_PORT=22
-USERNAME=jake
-PASSWORD=someSecretPassword
-SSH_KEY_FILE=/home/jake/.ssh/id_rsa.pub
-```
+```bash
+# Docker Compose service name
+SERVICE_NAME=dev
 
-### Running
-```
-./run.sh <config-file> <clean>
-ssh <USERNAME>@localhost
+# Name of the built image
+IMAGE_NAME=dev-image
+
+# Name of the container
+CONTAINER_NAME=dev
+
+# Directory to bind to /workspace
+WORKSPACE_DIR=Workspace
+
+# Your username inside the container
+DEV_USER=user
+
+# user fullname
+DEV_FULL_NAME="Full Name"
+
+# UID/GID mapping (should match your host user for file permissions)
+DEV_UID=1000
+DEV_GID=1000
+DOCKER_GID=999
 ```

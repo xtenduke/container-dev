@@ -1,89 +1,49 @@
-if [ -z "$1" ]
-then
-  echo "Config file argument must be specified i.e. ./run.sh .config"
-  exit 1;
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_FILE=".env"
+
+[ -f "$ENV_FILE" ] || { echo ".env missing"; exit 1; }
+
+set -a
+source "$ENV_FILE"
+set +a
+
+CONTAINER_ID=$(docker compose ps -q "$SERVICE_NAME")
+FORCE_BUILD=false
+
+if [ "${1:-}" = "clean" ]; then
+  FORCE_BUILD=true
+  docker compose build --no-cache
+elif [ "${1:-}" = "--build" ]; then
+  FORCE_BUILD=true
 fi
 
-export $(cat $1 | xargs)
+# fresh build or not
+if [ "$FORCE_BUILD" = "true" ] || [ -z "$CONTAINER_ID" ]; then
+    
+    if [ "$FORCE_BUILD" = "true" ] && [ "${1:-}" != "clean" ]; then
+        docker compose build
+    fi
 
-if [ -z "$IMAGE_NAME" ] ||
-[ -z "$CONTAINER_NAME" ] ||
-[ -z "$SSH_KEY_FILE" ] ||
-[ -z "$USERNAME" ] ||
-[ -z "$SSH_HOST_PORT" ] ||
-[ -z "$BIND_LOCAL_DIRECTORY" ] ||
-[ -z "$BIND_CONTAINER_DIRECTORY" ]; then
-echo "Missing env var.\nRequired env vars"
-cat config.template
-exit 1; fi
+    # Prompt for password if not set in environment or .env
+    if [ -z "${ROOT_PASSWORD:-}" ] && [ -z "${DEV_PASSWORD:-}" ]; then
+        echo "Enter password for root/dev user (input will be hidden):"
+        read -s PASSWORD_INPUT
+        echo
+        export ROOT_PASSWORD="${PASSWORD_INPUT}"
+        export DEV_PASSWORD="${PASSWORD_INPUT}"
+    fi
 
-if [ -z "$IMAGE_NAME" ]
-then
-  echo "IMAGE_NAME env var missing"
-  exit 1;
-fi
-
-SSH_KEY=$(< $SSH_KEY_FILE)
-if [ -z "$SSH_KEY" ]
-then 
-  echo "Missing ssh key"
-  exit 1;
-fi
-
-IMAGE_EXISTS=$(docker image ls | grep \"$IMAGE_NAME\")
-CONTAINER_ID=$(docker ps -a --format "table {{.ID}}\t{{.Names}}" | grep $CONTAINER_NAME | cut -d ' ' -f1)
-
-build () {
-  set -e
-  docker build -t $IMAGE_NAME --build-arg SSH_KEY="$SSH_KEY" --build-arg USERNAME=$USERNAME --build-arg PASSWORD=$PASSWORD . --no-cache
-  set +e
-}
-
-# Stop and delete container
-remove_container() {
-  docker stop $CONTAINER_ID
-  docker rm $CONTAINER_ID
-}
-
-# Create a new cotnainer
-create_container() {
-  set -e
-  docker run -p 127.0.0.1:$SSH_HOST_PORT:22/tcp --name $CONTAINER_NAME -v $BIND_LOCAL_DIRECTORY:$BIND_CONTAINER_DIRECTORY -it $IMAGE_NAME
-  set +e
-}
-
-# Start the existing container
-start_container() {
-  docker start $CONTAINER_ID
-}
-
-if [ $IMAGE_EXISTS ]; then
-  echo "Image exists";
-  echo $IMAGE_EXISTS;
-  exit 1;
-  if [ "$2" = "clean" ]; then
-    echo "Building clean $IMAGE_NAME"
-    build
-  else
-    echo "Image $IMAGE_NAME exists - Skip build"
-  fi
+    docker compose up -d
 else
-  echo "Image doesnt exist"
-  build
+    # Container exists and no rebuild requested
+    echo "Container $CONTAINER_NAME exists. Starting..."
+    docker start "$CONTAINER_ID" >/dev/null
 fi
 
-# Get container id if it already exists
-if [ $CONTAINER_ID ]; then
-  if [ "$2" = "clean" ]; then
-    echo "Removing container $CONTAINER_NAME"
-    remove_container
-    echo "Creating container $CONTAINER_NAME"
-    create_container
-  else
-    echo "Container exists - starting"
-    start_container
-  fi
-else
-  echo "Creating container $CONTAINER_NAME"
-  create_container
-fi
+CONTAINER_ID=$(docker compose ps -q "$SERVICE_NAME")
+
+echo "Attaching to container $CONTAINER_NAME ($CONTAINER_ID) as user $DEV_USER"
+docker exec -it -u "$DEV_USER" "$CONTAINER_ID" zsh -l
+

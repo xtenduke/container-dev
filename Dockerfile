@@ -1,53 +1,90 @@
-FROM ubuntu:20.04
-ARG SSH_KEY
-ARG USERNAME
-ARG PASSWORD
+FROM fedora:43
 
-VOLUME development
+ARG DEV_USER
+ARG DEV_UID
+ARG DEV_GID
+ARG DOCKER_GID
 
-COPY entrypoint.sh /
-RUN chmod 755 entrypoint.sh
+RUN dnf -y update \
+    && curl -o /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/fedora/docker-ce.repo \
+    && dnf clean all
 
-# create user
-RUN adduser --gecos "" --disabled-password $USERNAME
-RUN echo "$PASSWORD\n$PASSWORD" | passwd $USERNAME
+RUN dnf -y install \
+    sudo \
+    util-linux \
+    shadow-utils \
+    passwd \
+    procps-ng \
+    bash-completion \
+    zsh \
+    less \
+    which \
+    tree \
+    file \
+    jq \
+    ripgrep \
+    fd-find \
+    fzf \
+    bat \
+    neovim \
+    tmux \
+    git \
+    git-lfs \
+    openssh-clients \
+    curl \
+    wget \
+    rsync \
+    iproute \
+    iputils \
+    bind-utils \
+    net-tools \
+    tcpdump \
+    traceroute \
+    gcc \
+    gcc-c++ \
+    make \
+    cmake \
+    pkgconf-pkg-config \
+    clang \
+    lldb \
+    tar \
+    unzip \
+    zip \
+    xz \
+    bzip2 \
+    zstd \
+    ca-certificates \
+    openssl \
+    iptables \
+    slirp4netns \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin \
+    docker-ce-rootless-extras \
+    fastfetch \
+    && dnf clean all
 
-# Create ssh dir
-RUN mkdir -p /home/$USERNAME/.ssh
-# Create authorized_keys file
-RUN touch /home/$USERNAME/.ssh/authorized_keys
+RUN groupadd -g ${DOCKER_GID} docker || true
 
-# copy ssh key to authorized_keys
-RUN echo "$SSH_KEY" > /home/$USERNAME/.ssh/authorized_keys
+RUN groupadd -g ${DEV_GID} ${DEV_USER} \
+    && useradd -m -u ${DEV_UID} -g ${DEV_GID} -G docker -s /usr/bin/zsh ${DEV_USER} \
+    && echo "${DEV_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${DEV_USER} \
+    && chmod 0440 /etc/sudoers.d/${DEV_USER} \
+    # gosu for easy step-down from root
+    && curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-amd64" \
+    && chmod +x /usr/local/bin/gosu \
+    && echo "${DEV_USER}:100000:65536" >> /etc/subuid \
+    && echo "${DEV_USER}:100000:65536" >> /etc/subgid \
+    && echo "${DEV_USER}:100000:65536" >> /etc/subgid
 
-# fixup perms
-RUN chmod 0700 /home/$USERNAME/.ssh
-RUN chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Update repos
-RUN apt update
 
-# Install ssh server
-RUN apt-get install -y openssh-server
+WORKDIR /workspace
 
-# Enable ssh server
-RUN service ssh start
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Disable password authentication
-RUN sed -E -i 's|^#?(PasswordAuthentication)\s.*|\1 no|' /etc/ssh/sshd_config
 
-RUN service ssh restart
-
-# Add sudo
-RUN apt install -y sudo
-RUN adduser $USERNAME sudo
-
-# Add vi
-RUN apt install -y neovim
-
-# Add nano
-RUN apt install -y nano
-
-EXPOSE 22
-
-CMD ["./entrypoint.sh"]
